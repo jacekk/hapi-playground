@@ -5,15 +5,35 @@ const server = Hapi.server({
     port: 8000,
 })
 
+const getRandomString = () =>
+    Math.random()
+        .toString(36)
+        .toUpperCase()
+        .substr(2)
+
 server.route({
     method: 'GET',
-    path: '/hello',
-    handler: function(request, h) {
-        return 'hello world'
+    path: '/hello/{name?}',
+    handler(request, h) {
+        const { name } = request.params
+
+        if (name) {
+            return `Hello '${encodeURIComponent(name)}' :)`
+        }
+
+        return `Hello anonymous '${getRandomString()}' :)`
     },
 })
 
-async function start() {
+server.route({
+    method: 'GET',
+    path: '/search',
+    handler(request, h) {
+        return request.query
+    },
+})
+
+const start = async () => {
     try {
         await server.start()
     } catch (err) {
