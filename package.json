@@ -1,0 +1,17 @@
+{
+  "name": "hapi-by-type-of-web",
+  "version": "0.1.0",
+  "description": "Hapi tutorial from https://typeofweb.com",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "nodemon ./src/index.js"
+  },
+  "author": "JacekK",
+  "license": "MIT",
+  "dependencies": {
+    "hapi": "^17.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^1.14.11"
+  }
+}
