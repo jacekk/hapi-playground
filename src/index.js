@@ -1,7 +1,47 @@
 const Hapi = require('hapi')
 const Joi = require('joi')
+const Inert = require('inert')
+const Vision = require('vision')
+const HapiSwagger = require('hapi-swagger')
+
+const PACKAGE = require('../package')
 
 const contacts = []
+
+const swaggerConfig = {
+    plugin: HapiSwagger,
+    options: {
+        info: {
+            title: PACKAGE.description,
+            version: PACKAGE.version,
+        },
+    },
+}
+
+const Contact = Joi.object({
+    name: Joi.string()
+        .required()
+        .example('Jan')
+        .description(`Contact's name`),
+    surname: Joi.string()
+        .required()
+        .example('Kowalski')
+        .description(`Contact's surname`),
+}).label('Contact')
+
+const ContactResponseSchema = Joi.object({
+    contact: Contact.required(),
+})
+    .required()
+    .label('ContactResponseSchema')
+
+const ContactsResponseSchema = Joi.object({
+    contacts: Joi.array()
+        .items(Contact)
+        .label('Contacts'),
+})
+    .required()
+    .label('ContactsSchema')
 
 const server = Hapi.server({
     host: 'localhost',
@@ -43,13 +83,13 @@ server.route({
         return `Hello anonymous '${getRandomString()}' :)`
     },
     config: {
+        tags: ['api'],
         validate: {
             params: {
                 name: Joi.string()
                     .alphanum()
                     .min(3)
-                    .max(30)
-                    .required(),
+                    .max(30),
             },
         },
     },
@@ -61,23 +101,58 @@ server.route({
     handler(request, h) {
         return h.response({ contacts }).code(201)
     },
+    config: {
+        tags: ['api'],
+        description: 'Returns added contacts',
+        response: {
+            status: {
+                200: ContactsResponseSchema.example({
+                    contacts: [
+                        { name: 'Jan', surname: 'Kowalski' },
+                        { name: 'Daniel', surname: 'Nowak' },
+                    ],
+                }),
+            },
+        },
+    },
 })
 
 server.route({
     method: 'POST',
     path: '/contacts',
     config: {
+        tags: ['api'],
+        description: 'Create a new contact',
+        notes: 'Returns created contact',
+        plugins: {
+            'hapi-swagger': {
+                responses: {
+                    400: {
+                        description: 'Bad request',
+                    },
+                    409: {
+                        description: 'User with given name/surname exists',
+                    },
+                },
+            },
+        },
         validate: {
-            payload: Joi.object({
-                contact: Joi.object({
-                    name: Joi.string().required(),
-                    surname: Joi.string().required(),
-                }).required(),
-            }),
+            payload: ContactResponseSchema,
+        },
+        response: {
+            status: {
+                201: ContactsResponseSchema.description('Contact created.'),
+            },
         },
     },
     handler(request, h) {
         const contact = request.payload.contact
+        const userExists = contacts.find(
+            (c) => c.name === contact.name && c.surname === contact.surname
+        )
+        if (userExists) {
+            return h.response('This user already exists!').code(409)
+        }
         contacts.push(contact)
         return { contact }
     },
@@ -90,6 +165,7 @@ server.route({
         return request.query
     },
     config: {
+        tags: ['api'],
         validate: {
             query: {
                 text: Joi.string().required(),
@@ -101,6 +177,8 @@ server.route({
 })
 
 const start = async () => {
+    await server.register([Inert, Vision, swaggerConfig])
+
     try {
         await server.start()
     } catch (err) {
